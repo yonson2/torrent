@@ -267,7 +267,7 @@ func (t *Torrent) saveMetadataPiece(index int, data []byte) {
 	if t.haveInfo() {
 		return
 	}
-	if index >= len(t.metadataCompletedChunks) {
+	if index >= len(t.metadataCompletedChunks) && t.cl.config.Debug {
 		log.Printf("%s: ignoring metadata piece %d", t, index)
 		return
 	}
@@ -366,7 +366,9 @@ func (t *Torrent) setInfo(info *metainfo.Info) error {
 func (t *Torrent) onSetInfo() {
 	for conn := range t.conns {
 		if err := conn.setNumPieces(t.numPieces()); err != nil {
-			log.Printf("closing connection: %s", err)
+			if t.cl.config.Debug {
+				log.Printf("closing connection: %s", err)
+			}
 			conn.Close()
 		}
 	}
@@ -743,7 +745,7 @@ func (t *Torrent) hashPiece(piece pieceIndex) (ret metainfo.Hash) {
 		missinggo.CopyExact(&ret, hash.Sum(nil))
 		return
 	}
-	if err != io.ErrUnexpectedEOF && !os.IsNotExist(err) {
+	if err != io.ErrUnexpectedEOF && !os.IsNotExist(err) && t.cl.config.Debug {
 		log.Printf("unexpected error hashing piece with %T: %s", t.storage.TorrentImpl, err)
 	}
 	return
@@ -1058,7 +1060,9 @@ func (t *Torrent) updatePieceCompletion(piece pieceIndex) {
 	pcu := t.pieceCompleteUncached(piece)
 	p := &t.pieces[piece]
 	changed := t.completedPieces.Get(bitmap.BitIndex(piece)) != pcu.Complete || p.storageCompletionOk != pcu.Ok
-	log.Fmsg("piece %d completion: %v", piece, pcu.Ok).AddValue(debugLogValue).Log(t.logger)
+	if t.cl.config.Debug {
+		log.Fmsg("piece %d completion: %v", piece, pcu.Ok).AddValue(debugLogValue).Log(t.logger)
+	}
 	p.storageCompletionOk = pcu.Ok
 	t.completedPieces.Set(bitmap.BitIndex(piece), pcu.Complete)
 	t.tickleReaders()
@@ -1247,7 +1251,9 @@ func (t *Torrent) startScrapingTracker(_url string) {
 	}
 	u, err := url.Parse(_url)
 	if err != nil {
-		log.Str("error parsing tracker url").AddValues("url", _url).Log(t.logger)
+		if t.cl.config.Debug {
+			log.Str("error parsing tracker url").AddValues("url", _url).Log(t.logger)
+		}
 		// TODO: Handle urls with leading '*', some kind of silly uTorrent
 		// convention?
 		return
@@ -1383,7 +1389,9 @@ func (t *Torrent) dhtAnnouncer(s *dht.Server) {
 			if err == nil {
 				t.numDHTAnnounces++
 			} else {
-				log.Printf("error announcing %q to DHT: %s", t, err)
+				if t.cl.config.Debug {
+					log.Printf("error announcing %q to DHT: %s", t, err)
+				}
 			}
 		}()
 		select {
@@ -1539,7 +1547,9 @@ func (t *Torrent) pieceHashed(piece pieceIndex, correct bool) {
 		if correct {
 			pieceHashedCorrect.Add(1)
 		} else {
-			log.Printf("%s: piece %d (%s) failed hash: %d connections contributed", t, piece, p.hash, len(touchers))
+			if t.cl.config.Debug {
+				log.Printf("%s: piece %d (%s) failed hash: %d connections contributed", t, piece, p.hash, len(touchers))
+			}
 			pieceHashedNotCorrect.Add(1)
 		}
 	}
