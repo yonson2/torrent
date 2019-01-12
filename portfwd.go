@@ -14,7 +14,7 @@ func addPortMapping(d upnp.Device, proto upnp.Protocol, internalPort int, debug 
 		log.Printf("error adding %s port mapping: %s", proto, err)
 	} else if externalPort != internalPort && debug {
 		log.Printf("external port %d does not match internal port %d in port mapping", externalPort, internalPort)
-	} else if debug && debug {
+	} else if debug {
 		log.Printf("forwarded external %s port %d", proto, externalPort)
 	}
 }
